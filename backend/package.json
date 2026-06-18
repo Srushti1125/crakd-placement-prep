@@ -1,0 +1,37 @@
+{
+  "name": "student-profiler-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@google/genai": "^1.51.0",
+    "@langchain/community": "^1.1.29",
+    "@langchain/core": "^1.1.49",
+    "@langchain/google-genai": "^2.1.31",
+    "@langchain/langgraph": "^1.4.2",
+    "axios": "^1.6.2",
+    "bcryptjs": "^2.4.3",
+    "chromadb": "^3.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.4.1",
+    "form-data": "^4.0.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "langchain": "^1.4.5",
+    "multer": "^1.4.5-lts.1",
+    "pdf-parse": "^1.1.1",
+    "pdf-parser": "^1.0.5",
+    "pg": "^8.20.0",
+    "pg-hstore": "^2.3.4",
+    "@langchain/textsplitters": "^0.1.0",
+    "@langchain/classic": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.20.0"
+  }
+}
