@@ -1,0 +1,33 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+web_modules/
+
+# Python virtual environments
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.pyc
+
+# Local environment variables
+.env
+.env.local
+.env.*.local
+
+# Production/Build outputs
+dist/
+build/
+out/
+.next/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS metadata
+.DS_Store
+Thumbs.db
