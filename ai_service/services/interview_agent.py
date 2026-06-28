@@ -2,7 +2,6 @@ from typing import TypedDict, List, Dict, Any, Optional
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 from services.ai import chat_model
-from services.resume_service import retrieve_context
 
 class InterviewState(TypedDict):
     chatHistory: List[Dict[str, str]]
@@ -100,13 +99,8 @@ async def search_resume_node(state: InterviewState) -> Dict[str, Any]:
     branch = state.get("branch") or "Computer Science"
     user_id = state.get("userId") or "default"
     
-    last_user_msg = ""
-    for m in reversed(chat_history):
-        if m.get("role") == "user":
-            last_user_msg = m.get("text") or ""
-            break
-            
-    context = retrieve_context(user_id, last_user_msg or role or branch, resume_text, 4)
+    # Pass the entire resume text directly for complete resume coverage
+    context = resume_text
     history_str = "\n".join(
         f"{'Candidate' if m.get('role') == 'user' else 'Interviewer'}: {m.get('text')}"
         for m in chat_history
@@ -133,9 +127,9 @@ Guidelines:
 async def analyze_project_node(state: InterviewState) -> Dict[str, Any]:
     resume_text = state.get("resumeText") or ""
     chat_history = state.get("chatHistory") or []
-    user_id = state.get("userId") or "default"
     
-    context = retrieve_context(user_id, "project built application framework design", resume_text, 4)
+    # Pass the entire resume text to analyze projects with global context
+    context = resume_text
     history_str = "\n".join(
         f"{'Candidate' if m.get('role') == 'user' else 'Interviewer'}: {m.get('text')}"
         for m in chat_history
