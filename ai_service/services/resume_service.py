@@ -1,45 +1,34 @@
 import os
 import re
-import json
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.messages import SystemMessage, HumanMessage
+from typing import List, Optional
+from pydantic import BaseModel, Field
 from services.ai import chat_model
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
 
-resume_chunks_db = {}
+# Pydantic Schemas for Resume Analysis Validation
+class ReadabilityStats(BaseModel):
+    score: int = Field(description="Score out of 100")
+    level: str = Field(description="Complexity level, e.g. Very Easy, Easy, Fairly Easy, Standard, Fairly Difficult, Difficult, Very Difficult")
+    avgWordsPerSentence: str = Field(description="Average words per sentence as a string representation of float, e.g. '14.2'")
 
-def index_resume(user_id: str, resume_text: str):
-    if not resume_text:
-        return
-    splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
-    chunks = splitter.split_text(resume_text)
-    resume_chunks_db[str(user_id)] = chunks
+class StudyTopic(BaseModel):
+    topic: str = Field(description="Name of the topic to study, e.g. Redis Caching, DB Indexing")
+    reason: str = Field(description="Specific, customized reason why they need to study this based on their projects/skills gaps")
+    resources: List[str] = Field(description="Curated web resources or study suggestions")
 
-def retrieve_context(user_id: str, query: str, resume_text: str, max_chunks: int = 4) -> str:
-    if not resume_text:
-        return ""
-        
-    user_id_str = str(user_id)
-    if user_id_str not in resume_chunks_db:
-        index_resume(user_id_str, resume_text)
-        
-    chunks = resume_chunks_db.get(user_id_str, [])
-    if not chunks:
-        return ""
-        
-    if not query:
-        return "\n".join(chunks[:max_chunks])
-        
-    query_words = set(re.findall(r'\w+', query.lower()))
-    scored_chunks = []
-    
-    for chunk in chunks:
-        chunk_lower = chunk.lower()
-        score = sum(1 for word in query_words if word in chunk_lower)
-        scored_chunks.append((score, chunk))
-        
-    scored_chunks.sort(key=lambda x: x[0], reverse=True)
-    top_chunks = [chunk for score, chunk in scored_chunks[:max_chunks]]
-    return "\n".join(top_chunks)
+class MockQuestion(BaseModel):
+    question: str = Field(description="Highly detailed, customized mock interview question probing a project or skill listed on their resume")
+    type: str = Field(description="Either 'Project' or 'Skill'")
+    context: str = Field(description="Name of the specific project or skill this question probes, e.g. KshetraX, TensorFlow")
+
+class ResumeAnalysisResult(BaseModel):
+    overallScore: int = Field(description="Overall interview readiness based on match quality as an integer 0-100")
+    atsScore: int = Field(description="Resume search compatibility as an integer 0-100")
+    roleRelevance: int = Field(description="Fit for target role as an integer 0-100")
+    readability: ReadabilityStats = Field(description="Readability statistics")
+    studyTopics: List[StudyTopic] = Field(description="Personalized study topics list")
+    possibleQuestions: List[MockQuestion] = Field(description="Customized mock interview questions based on resume")
 
 def calculate_ats_score(resume_text: str, job_description: str) -> int:
     score = 0
@@ -228,62 +217,32 @@ async def analyze_resume_with_ai(resume_text: str, job_description: str, job_rol
     if isinstance(required_skills, str):
         skills_list = [s.strip() for s in required_skills.split(',') if s.strip()]
         
-    prompt = f"""You are a professional placement preparation coach and technical reviewer.
-Your job is to analyze the candidate's resume text against a target job role and description, and generate:
-1. A personalized Study Plan (a list of core topics the candidate needs to study).
-   - This MUST include deep-dives into the specific technologies, databases, frameworks, or libraries the candidate has listed in their resume projects or skills (e.g. React Native, Firebase, Expo, TensorFlow, OpenCV, SQLite, etc.) to test their mastery.
-   - It should also include core concepts based on the target job role and description gaps.
-2. A list of possible Mock Interview Questions based specifically on their projects and skills.
-
-Target Job Role: {job_role or 'Software Engineer'}
-Target Job Description: {job_description or 'General Technical Role'}
-Required Skills: {', '.join(skills_list) or 'None specified'}
-
-Candidate Resume Text:
-{resume_text}
-
-Analyze the resume and return ONLY a valid JSON object matching this structure with no backticks, markdown, or extra explanation text:
-{{
-  "overallScore": <integer 0-100 indicating overall interview readiness based on match quality>,
-  "atsScore": <integer 0-100 indicating resume search compatibility>,
-  "roleRelevance": <integer 0-100 indicating fit for target role>,
-  "readability": {{
-    "score": <integer 0-100>,
-    "level": "<one of: Very Easy, Easy, Fairly Easy, Standard, Fairly Difficult, Difficult, Very Difficult>",
-    "avgWordsPerSentence": "<string representation of float, e.g. '14.2'>"
-  }},
-  "studyTopics": [
-    {{
-      "topic": "<name of the topic to study, e.g., Redis Caching, DB Indexing, STAR Method>",
-      "reason": "<specific, customized reason why they need to study this based on their projects/skills gaps>",
-      "resources": [
-        "<curated web resource or study suggestion 1>",
-        "<curated web resource or study suggestion 2>"
-      ]
-    }}
-  ],
-  "possibleQuestions": [
-    {{
-      "question": "<highly detailed, customized mock interview question probing a project or skill listed on their resume>",
-      "type": "<either 'Project' or 'Skill'>",
-      "context": "<name of the specific project or skill this question probes, e.g. KshetraX, TensorFlow, C++>"
-    }}
-  ]
-}}"""
-
+    parser = JsonOutputParser(pydantic_object=ResumeAnalysisResult)
+    
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", "You are a professional placement preparation coach and technical reviewer. Your job is to format output in JSON according to: {format_instructions}"),
+        ("user", "Your job is to analyze the candidate's resume text against a target job role and description, and generate:\n"
+                 "1. A personalized Study Plan (a list of core topics the candidate needs to study).\n"
+                 "   - This MUST include deep-dives into the specific technologies, databases, frameworks, or libraries the candidate has listed in their resume projects or skills (e.g. React Native, Firebase, Expo, TensorFlow, OpenCV, SQLite, etc.) to test their mastery.\n"
+                 "   - It should also include core concepts based on the target job role and description gaps.\n"
+                 "2. A list of possible Mock Interview Questions based specifically on their projects and skills.\n\n"
+                 "Target Job Role: {job_role}\n"
+                 "Target Job Description: {job_description}\n"
+                 "Required Skills: {required_skills}\n\n"
+                 "Candidate Resume Text:\n{resume_text}")
+    ])
+    
+    # LCEL Chain
+    chain = prompt_template | chat_model | parser
+    
     try:
-        response = await chat_model.ainvoke([
-            SystemMessage(content="You are an expert technical interviewer and placement preparation coach."),
-            HumanMessage(content=prompt)
-        ])
-        content = response.content.strip()
-        
-        json_match = re.search(r'\{[\s\S]*\}', content)
-        if json_match:
-            data = json.loads(json_match.group(0))
-        else:
-            data = json.loads(content)
-            
+        data = await chain.ainvoke({
+            "job_role": job_role or 'Software Engineer',
+            "job_description": job_description or 'General Technical Role',
+            "required_skills": ', '.join(skills_list) or 'None specified',
+            "resume_text": resume_text,
+            "format_instructions": parser.get_format_instructions()
+        })
         return data
     except Exception as e:
         print(f"Warning: AI Resume analysis failed, running fallback. Error: {str(e)}")
