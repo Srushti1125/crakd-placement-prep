@@ -13,6 +13,7 @@ import resumeRoutes from './routes/resume.routes.js';
 import interviewRoutes from './routes/interview.routes.js';
 import projectRoutes from './routes/project.routes.js';
 import testRoutes from './routes/test.routes.js';
+import experiencesRoutes from './routes/experiences.routes.js';
 
 dotenv.config();
 
@@ -42,5 +43,6 @@ app.use('/api/resume', resumeRoutes);
 app.use('/api/interview', interviewRoutes);
 app.use('/api/project', projectRoutes);
 app.use('/api/test', testRoutes);
+app.use('/api/experiences', experiencesRoutes);
 
 export default app;
