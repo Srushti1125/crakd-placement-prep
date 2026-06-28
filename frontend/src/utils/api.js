@@ -258,3 +258,23 @@ export const projectAPI = {
     return res.json();
   },
 };
+
+// ─── Experiences API ──────────────────────────────────────────────────────────
+export const experiencesAPI = {
+  getCompanies: async () => {
+    const res = await apiFetch('/api/experiences/companies');
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error);
+    return json;
+  },
+
+  getInsights: async (companyFolder) => {
+    const res = await apiFetch('/api/experiences/insights', {
+      method: 'POST',
+      body: JSON.stringify({ companyFolder }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error);
+    return json;
+  },
+};

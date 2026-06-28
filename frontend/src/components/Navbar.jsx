@@ -43,6 +43,7 @@ const Navbar = () => {
     { path: '/resume', label: 'Resume', icon: 'FileText' },
     { path: '/interview', label: 'Interviews', icon: 'Microphone' },
     { path: '/mock-test', label: 'Tests', icon: 'Award' }, 
+    { path: '/company-prep', label: 'Company Prep', icon: 'Briefcase' },
   ];
 
   const NavButton = ({ link }) => {

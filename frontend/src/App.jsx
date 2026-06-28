@@ -14,6 +14,7 @@ import MockTestSession from './pages/MockTestSession';
 import MockTestResults from './pages/MockTestResults';
 import MockTestHistory from './pages/MockTestHistory';
 import MockTestReview from './pages/MockTestReview';
+import CompanyPrep from './pages/CompanyPrep';
 
 const App = () => {
   return (
@@ -52,6 +53,9 @@ const App = () => {
         } />
         <Route path="/ProjectEvaluation" element={
           <ProtectedRoute><ProjectEvaluation /></ProtectedRoute>
+        } />
+        <Route path="/company-prep" element={
+          <ProtectedRoute><CompanyPrep /></ProtectedRoute>
         } />
 
         // Mock test 
