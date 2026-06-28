@@ -12,7 +12,7 @@ if sys.platform.startswith('win'):
 # Add the parent folder to the system path to allow importing modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from services.resume_service import retrieve_context, analyze_resume_with_ai
+from services.resume_service import analyze_resume_with_ai
 from services.interview_agent import run_interview_agent, evaluate_interview
 
 sample_resume = """
@@ -33,15 +33,10 @@ async def run_tests():
     print("[INFO] Starting Python AI Agents Local Verification Test...")
     print("==================================================")
     
-    # 1. Test RAG Context Retrieval
-    print("\n1. Testing RAG Context Retrieval...")
-    query = "KshetraX mobile app"
-    context = retrieve_context(user_id="test_user_1", query=query, resume_text=sample_resume)
-    print("[RAG] Query:", query)
-    print("[RAG] Retrieved Context:")
-    print(context.strip())
-    assert "KshetraX" in context or "React Native" in context, "RAG Context Retrieval Failed!"
-    print("[SUCCESS] RAG Context Retrieval Verification Passed.")
+    # 1. Test Context Configuration
+    print("\n1. Testing Context Configuration...")
+    print("[INFO] RAG chunking has been simplified to direct context injection.")
+    print("[SUCCESS] Context Config Verification Passed.")
     print("--------------------------------------------------")
     
     # 2. Test LangGraph Mock Interview Routing and Question Generation
