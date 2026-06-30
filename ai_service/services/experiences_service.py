@@ -7,9 +7,15 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from services.ai import chat_model
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.documents import Document
+from langchain_chroma import Chroma
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 EXPERIENCES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "2026_Interview_Experiences")
-experiences_cache = {}
+CHROMA_DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "chroma_db")
+
+# Initialize embeddings model
+embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-2")
 
 # Pydantic Schemas for Output Verification & Format Injection
 class TopicPrep(BaseModel):
@@ -75,33 +81,74 @@ def parse_and_chunk_pdfs(company_folder: str) -> list:
                 
     return chunks
 
-def retrieve_company_context(company_folder: str, query: str = None, max_chunks: int = 15) -> list:
-    """RAG Retrieval: Returns the most informative experience chunks for a selected company."""
-    if company_folder not in experiences_cache:
-        experiences_cache[company_folder] = parse_and_chunk_pdfs(company_folder)
-        
-    chunks = experiences_cache.get(company_folder, [])
-    if not chunks:
-        return []
-        
-    search_terms = query or "round interview coding questions technical project managers HR criteria topics difficulty tips"
-    query_words = set(re.findall(r'\w+', search_terms.lower()))
+def retrieve_company_context(company_folder: str, query: str = None, max_chunks: int = 12) -> list:
+    """Semantic RAG Retrieval: Returns the top relevant chunks for a selected company using ChromaDB."""
+    # Initialize connection to the persistent Chroma collection for this specific company
+    # Clean the folder name to be a valid collection name (replace spaces and special chars if any)
+    clean_collection_name = re.sub(r'[^a-zA-Z0-9_-]', '_', company_folder).lower()
     
-    scored_chunks = []
-    for c in chunks:
-        score = sum(1 for word in query_words if word in c["text"].lower())
-        if len(c["text"]) < 100:
-            score -= 2
-        scored_chunks.append((score, c))
+    vector_store = Chroma(
+        collection_name=clean_collection_name,
+        embedding_function=embeddings,
+        persist_directory=CHROMA_DB_DIR
+    )
+    
+    # Check if the database already contains chunks for this company
+    try:
+        count = vector_store._collection.count()
+    except Exception:
+        count = 0
         
-    scored_chunks.sort(key=lambda x: x[0], reverse=True)
-    return [item for score, item in scored_chunks[:max_chunks]]
+    if count == 0:
+        print(f"[RAG] Vector database collection '{clean_collection_name}' is empty. Parsing files...")
+        chunks = parse_and_chunk_pdfs(company_folder)
+        if chunks:
+            docs = [Document(page_content=c["text"], metadata={"source": c["source"]}) for c in chunks]
+            
+            # Batch addition to prevent Gemini API Free Tier embedContent rate limits (100 requests/minute)
+            batch_size = 15
+            for i in range(0, len(docs), batch_size):
+                batch = docs[i : i + batch_size]
+                success = False
+                retries = 3
+                while not success and retries > 0:
+                    try:
+                        vector_store.add_documents(batch)
+                        success = True
+                    except Exception as e:
+                        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                            print(f"[RAG] Rate limit hit on batch {i // batch_size + 1}. Sleeping 30 seconds to back off...")
+                            import time
+                            time.sleep(30)
+                            retries -= 1
+                        else:
+                            raise e
+                            
+                # Small safety delay between successful batches
+                if i + batch_size < len(docs):
+                    import time
+                    time.sleep(8)
+                    
+            print(f"[SUCCESS] Indexed {len(docs)} document chunks to ChromaDB.")
+        else:
+            return []
+            
+    search_terms = query or "recruitment round interview coding questions technical project manager HR criteria difficulty tips"
+    
+    # Run similarity search
+    retrieved_docs = vector_store.similarity_search(search_terms, k=max_chunks)
+    
+    # Format to match the previous returned structure
+    return [
+        {"text": doc.page_content, "source": doc.metadata.get("source", "unknown")}
+        for doc in retrieved_docs
+    ]
 
 async def generate_company_insights(company_folder: str) -> dict:
-    """Generate synthesized prep checklists and quotes using RAG context and LangChain LCEL."""
+    """Generate synthesized prep checklists and quotes using ChromaDB RAG context and LangChain LCEL."""
     display_name = company_folder.replace("_2026", "").replace("_Summer_Interns", " (Interns)").replace("_", " ")
     
-    # Retrieve top 12 chunks from PDFs for this company
+    # Retrieve top 12 chunks from ChromaDB for this company
     retrieved = retrieve_company_context(company_folder, max_chunks=12)
     
     if not retrieved:
