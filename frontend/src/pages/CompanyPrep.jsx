@@ -55,14 +55,13 @@ const CompanyPrep = () => {
     loadInsights(val);
   };
 
-  // Construct chart data based on difficulty rating
+  // Construct chart data based on stage difficulty ratings returned by RAG
   const getChartData = () => {
     if (!insights) return [];
-    const diff = insights.difficultyRating || 3;
     return [
-      { name: 'Aptitude/Online Test', Difficulty: Math.max(1, diff - 1) },
-      { name: 'Technical Interview', Difficulty: diff },
-      { name: 'HR/Behavioral', Difficulty: Math.min(5, diff + 1) }
+      { name: 'Aptitude/Online Test', Difficulty: insights.aptitudeDifficulty || 3 },
+      { name: 'Technical Interview', Difficulty: insights.technicalDifficulty || 3 },
+      { name: 'HR/Behavioral', Difficulty: insights.hrDifficulty || 3 }
     ];
   };
 
@@ -271,10 +270,35 @@ const CompanyPrep = () => {
                       </span>
                     ))}
                   </div>
-                  <span style={{ fontSize: '0.85rem', color: '#5e5e5e', fontWeight: '500' }}>
-                    {insights.difficultyRating >= 4 ? 'Highly Competitive' : insights.difficultyRating >= 3 ? 'Moderate' : 'Accessible'}
-                  </span>
                 </div>
+
+                {/* Offered Packages / CTC Card */}
+                {insights.offeredPackages && insights.offeredPackages.length > 0 && (
+                  <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                    <h4 style={{ color: '#191919', fontSize: '0.9rem', fontWeight: '600', margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Icons.Briefcase size={18} color="#0a66c2" /> Offered Packages / CTC
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {insights.offeredPackages.map((pkg, idx) => (
+                        <div key={idx} style={{
+                          padding: '0.5rem 0.75rem',
+                          background: '#f0fdf4',
+                          border: '1px solid #bbf7d0',
+                          borderRadius: '6px',
+                          fontSize: '0.82rem',
+                          color: '#166534',
+                          fontWeight: '700',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <span style={{ fontSize: '1.1rem' }}>💼</span>
+                          {pkg}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Recharts difficulty visual */}
                 <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', height: '260px' }}>
