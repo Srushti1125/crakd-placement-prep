@@ -6,8 +6,8 @@ import Dashboard from './pages/Dashboard';
 import ResumeAnalysis from './pages/ResumeAnalysis';
 import MockInterview from './pages/MockInterview';
 import ProjectEvaluation from './pages/ProjectEvaluation';
-import AIOnboarding from './pages/AIOnboarding';       // ← NEW
-import StudentProfile from './pages/StudentProfile';   // ← NEW
+import AIOnboarding from './pages/AIOnboarding';       
+import StudentProfile from './pages/StudentProfile';   
 import ProtectedRoute from './components/ProtectedRoute';
 import MockTestHome from './pages/MockTestHome';
 import MockTestSession from './pages/MockTestSession';

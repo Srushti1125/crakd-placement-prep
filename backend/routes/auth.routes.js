@@ -22,14 +22,13 @@ router.post('/signup', async (req, res) => {
     if (existing.rows.length > 0) return res.status(400).json({ error: 'Email already registered' });
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const userRole = 'student'; // Always student, TPO removed
+    const userRole = 'student'; 
     const result = await pool.query(
       'INSERT INTO users (email, password_hash, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role',
       [email.toLowerCase(), passwordHash, name, userRole]
     );
     const user = result.rows[0];
 
-    // Always create a student profile
     await pool.query('INSERT INTO student_profiles (user_id) VALUES ($1)', [user.id]);
 
     const accessToken = generateAccessToken({ id: user.id, email: user.email, role: user.role });
