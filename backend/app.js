@@ -45,4 +45,10 @@ app.use('/api/project', projectRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/experiences', experiencesRoutes);
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('[EXPRESS ERROR]:', err.message);
+  res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+});
+
 export default app;

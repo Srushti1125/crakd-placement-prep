@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Icons from '../components/Icons';
+import { apiFetch } from '../utils/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -43,14 +44,12 @@ const MockTestSession = () => {
     clearInterval(timerRef.current);
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
-      const res = await fetch(`${BASE_URL}/api/test/submit`, {
+      const res = await apiFetch('/api/test/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ sessionId: session.sessionId, answers })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || 'Submission failed');
       setSubmitted(true);
       navigate('/mock-test/results', { state: { results: data, sessionId: session.sessionId } });
     } catch (err) {

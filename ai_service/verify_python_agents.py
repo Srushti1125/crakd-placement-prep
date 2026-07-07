@@ -94,6 +94,28 @@ async def run_tests():
     except Exception as e:
         print(f"[FAIL] Resume Study Plan & Questions Generator Failed: {str(e)}")
         
+    print("--------------------------------------------------")
+    
+    # 4. Test Interview Evaluation Scorecard Compilation
+    print("\n4. Testing Interview Evaluation...")
+    try:
+        evaluation = await evaluate_interview({
+            "chatHistory": chat_history,
+            "role": "Software Engineer",
+            "branch": "Computer Engineering",
+            "questionType": "technical",
+            "difficulty": "medium",
+            "resumeText": sample_resume,
+            "userId": "test_user_1"
+        })
+        print("[EVAL] Score:", evaluation.get("score"))
+        print("[EVAL] Strengths:", evaluation.get("strengths"))
+        print("[EVAL] Suggestions:", evaluation.get("suggestions"))
+        assert "score" in evaluation, "Score missing from evaluation!"
+        print("[SUCCESS] Interview Evaluation Verification Passed.")
+    except Exception as e:
+        print(f"[FAIL] Interview Evaluation Failed: {str(e)}")
+        
     print("==================================================")
     print("[INFO] All Python AI Agent Tests Completed!")
 

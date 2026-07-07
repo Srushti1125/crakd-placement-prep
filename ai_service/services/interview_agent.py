@@ -317,9 +317,7 @@ Difficulty: {difficulty}
 
 """
     if resume_text:
-        import re
-        resume_summary = retrieve_context(user_id, "", resume_text, 10)
-        prompt += f"Candidate's Resume Context:\n{resume_summary}\n\n"
+        prompt += f"Candidate's Resume Context:\n{resume_text}\n\n"
         
     prompt += f"Here is the full interview transcript:\n{history_str}\n\n"
     prompt += """Critique the candidate's performance. Return ONLY a valid JSON object with the following fields:

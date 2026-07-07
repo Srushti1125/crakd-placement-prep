@@ -17,7 +17,7 @@ const clearTokens = () => {
 };
 
 // ─── Core Fetch with Auto-Refresh ─────────────────────────────────────────────
-async function apiFetch(path, options = {}, retry = true) {
+export async function apiFetch(path, options = {}, retry = true) {
   const token = getAccessToken();
   const headers = {
     'Content-Type': 'application/json',

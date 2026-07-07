@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-
 load_dotenv(os.path.join(os.path.dirname(__file__), "../../backend/.env"))
 
 api_key = os.getenv("GEMINI_API_KEY")
