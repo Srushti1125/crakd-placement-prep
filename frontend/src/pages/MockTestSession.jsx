@@ -16,6 +16,11 @@ const MockTestSession = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const timerRef = useRef(null);
+  const answersRef = useRef(answers);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
 
   useEffect(() => {
     if (!session) { navigate('/mock-test'); return; }
@@ -43,14 +48,18 @@ const MockTestSession = () => {
     if (submitting || submitted) return;
     clearInterval(timerRef.current);
     setSubmitting(true);
+    const finalAnswers = answersRef.current;
     try {
       const res = await apiFetch('/api/test/submit', {
         method: 'POST',
-        body: JSON.stringify({ sessionId: session.sessionId, answers })
+        body: JSON.stringify({ sessionId: session.sessionId, answers: finalAnswers })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Submission failed');
       setSubmitted(true);
+      if (autoSubmit) {
+        alert('Time is up! Your answers have been submitted automatically.');
+      }
       navigate('/mock-test/results', { state: { results: data, sessionId: session.sessionId } });
     } catch (err) {
       alert('Submit failed: ' + err.message);

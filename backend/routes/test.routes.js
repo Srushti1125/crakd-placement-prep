@@ -1,9 +1,12 @@
 import express from 'express';
+import axios from 'axios';
 import { pool } from '../config/database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { isGeminiConfigured, callGemini } from '../services/ai.service.js';
 
 const router = express.Router();
+const PYTHON_AI_URL = process.env.PYTHON_AI_URL || "http://127.0.0.1:8000";
+
 
 const COMPANY_PATTERNS = {
   TCS: { quantitative: 40, logical: 30, verbal: 20, spatial: 10 },
@@ -30,107 +33,25 @@ router.post('/generate', authenticateToken, async (req, res) => {
     if (!testType) return res.status(400).json({ error: 'testType required' });
     if (!isGeminiConfigured()) return res.status(400).json({ error: 'Gemini not configured' });
 
-    let totalQuestions, prompt, timeMinutes;
-
-    if (testType === 'aptitude') {
-      totalQuestions = 30;
-      timeMinutes = 30;
-      const pattern = COMPANY_PATTERNS[companyPattern] || COMPANY_PATTERNS.General;
-      const qPerCategory = {
-        quantitative: Math.round(totalQuestions * pattern.quantitative / 100),
-        logical: Math.round(totalQuestions * pattern.logical / 100),
-        verbal: Math.round(totalQuestions * pattern.verbal / 100),
-        spatial: Math.round(totalQuestions * pattern.spatial / 100)
-      };
-
-      prompt = `Generate ${totalQuestions} aptitude MCQ questions for placement preparation.
-Distribution: ${qPerCategory.quantitative} Quantitative, ${qPerCategory.logical} Logical Reasoning, ${qPerCategory.verbal} Verbal, ${qPerCategory.spatial} Spatial Reasoning.
-${companyPattern ? `Style: ${companyPattern} company pattern` : ''}
-
-Return ONLY a JSON array. Each question object:
-{
-  "topic": "category name",
-  "difficulty": "Easy|Medium|Hard",
-  "question": "question text",
-  "options": ["A", "B", "C", "D"],
-  "correct_answer": 0,
-  "explanation": "why this answer is correct"
-}
-correct_answer is 0-indexed. Mix difficulties: 40% Easy, 40% Medium, 20% Hard.
-Return ONLY the JSON array, no markdown.`;
-
-    } else if (testType === 'subject') {
-      if (!topics || topics.length === 0) return res.status(400).json({ error: 'Topics required for subject test' });
-      timeMinutes = parseInt(timeLimit) || 30;
-      totalQuestions = timeMinutes * 2; // 2 questions per minute
-
-      const topicList = topics.map(t => {
-        const subtopics = SUBJECT_TOPICS[t] || [];
-        return `${t} (subtopics: ${subtopics.join(', ')})`;
-      }).join('\n');
-
-      prompt = `Generate ${totalQuestions} MCQ questions covering these subjects:
-${topicList}
-
-Distribute questions evenly across selected topics.
-Mix difficulties: 35% Easy, 45% Medium, 20% Hard.
-
-Return ONLY a JSON array. Each question:
-{
-  "topic": "specific topic name",
-  "difficulty": "Easy|Medium|Hard",
-  "question": "question text",
-  "options": ["A", "B", "C", "D"],
-  "correct_answer": 0,
-  "explanation": "clear explanation of the correct answer"
-}
-correct_answer is 0-indexed. No markdown, just the array.`;
-
-    } else if (testType === 'coding') {
-      timeMinutes = parseInt(timeLimit) || 30;
-      totalQuestions = timeMinutes * 2;
-
-      prompt = `Generate ${totalQuestions} MCQ questions about code analysis for placement tests.
-Question types (mix these):
-- "What is the output of this code?"
-- "What is wrong in this code?"
-- "What does this code do?"
-- "Is this code correct? If not, why?"
-- "What is the time complexity of this code?"
-- "Which line causes an error?"
-
-Use Python, Java, C++, JavaScript code snippets. Keep code snippets short (5-10 lines max).
-Mix difficulties: 30% Easy, 50% Medium, 20% Hard.
-
-Return ONLY a JSON array:
-{
-  "topic": "Python|Java|C++|JavaScript",
-  "difficulty": "Easy|Medium|Hard",
-  "question": "full question with code snippet",
-  "options": ["A", "B", "C", "D"],
-  "correct_answer": 0,
-  "explanation": "explanation with corrected code if needed"
-}
-No markdown, just the array.`;
-    }
+    const timeMinutes = parseInt(timeLimit) || 30;
 
     let questions;
     try {
-      const raw = await callGemini(prompt);
-      const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
-      questions = JSON.parse(arrayMatch ? arrayMatch[0] : cleaned);
+      const response = await axios.post(`${PYTHON_AI_URL}/api/quiz/generate`, {
+        testType,
+        topics: topics || [],
+        timeLimit: timeMinutes,
+        companyPattern: companyPattern || null
+      });
+      questions = response.data.questions;
     } catch (err) {
-      if (err.message === 'RATE_LIMITED') return res.status(429).json({ error: 'AI busy. Try again in 30s.' });
-      console.error('Question generation failed:', err);
+      console.error('FastAPI Quiz generation failed:', err.message);
       return res.status(500).json({ error: 'Failed to generate questions. Try again.' });
     }
 
     if (!Array.isArray(questions) || questions.length === 0) {
       return res.status(500).json({ error: 'Failed to generate valid questions. Try again.' });
     }
-
-    questions = questions.slice(0, totalQuestions);
 
     const session = await pool.query(
       `INSERT INTO test_sessions (user_id, test_type, topics, company_pattern, time_limit, total_questions, questions, status)
@@ -157,6 +78,7 @@ No markdown, just the array.`;
     res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
+
 
 // POST /submit — Submit test answers and get results
 router.post('/submit', authenticateToken, async (req, res) => {

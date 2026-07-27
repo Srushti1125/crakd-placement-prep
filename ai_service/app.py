@@ -11,6 +11,8 @@ from services.ai import chat_model
 from services.interview_agent import run_interview_agent, evaluate_interview
 from services.resume_service import analyze_resume_with_ai
 from services.experiences_service import get_available_companies, generate_company_insights
+from services.quiz_service import generate_quiz_questions_with_ai
+
 
 app = FastAPI(title="Crakd AI Service Microservice")
 
@@ -42,6 +44,13 @@ class AtsScoreRequest(BaseModel):
 
 class CompanyInsightsRequest(BaseModel):
     companyFolder: str
+
+class QuizGenerateRequest(BaseModel):
+    testType: str
+    topics: Optional[List[str]] = []
+    timeLimit: Optional[int] = 30
+    companyPattern: Optional[str] = None
+
 
 # Pydantic schema for structured student profiles from bio text
 class StudentProfileData(BaseModel):
@@ -158,3 +167,18 @@ async def get_insights(req: CompanyInsightsRequest):
     except Exception as e:
         print(f"Error in /api/experiences/insights: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/quiz/generate")
+async def generate_quiz(req: QuizGenerateRequest):
+    try:
+        questions = await generate_quiz_questions_with_ai(
+            test_type=req.testType,
+            topics=req.topics,
+            time_limit=req.timeLimit,
+            company_pattern=req.companyPattern
+        )
+        return {"questions": questions}
+    except Exception as e:
+        print(f"Error in /api/quiz/generate: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
